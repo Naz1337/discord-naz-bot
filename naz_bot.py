@@ -15,7 +15,7 @@ class NazBot(commands.Bot):
         self.add_commands()
 
         # load cogs
-        self.load_cogs()
+        # self.load_cogs()
 
     async def on_ready(self):
         print(
@@ -48,7 +48,7 @@ class NazBot(commands.Bot):
             )
 
         @self.command(aliases=["rld"])
-        @commands.is_owner
+        @commands.is_owner()
         async def reload(ctx: commands.Context, extension_name: str):
             self.reload_extension(f"cogs.{extension_name}")
 
@@ -59,10 +59,10 @@ class NazBot(commands.Bot):
             if isinstance(error, commands.NotOwner):
                 await ctx.send("You do not have enough power to access this command.")
 
-    def load_cogs(self):
-        for filename in os.listdir("./cogs"):
-            if filename.endswith(".py"):
-                self.load_extension(f"cogs.{filename[:-3]}")
+    # def load_cogs(self):
+    #     for filename in os.listdir("./cogs"):
+    #         if filename.endswith(".py"):
+    #             self.load_extension(f"cogs.{filename[:-3]}")
 
 
 naz_bot = NazBot()
