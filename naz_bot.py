@@ -14,7 +14,7 @@ class NazBot(commands.Bot):
 
         self.add_commands()
 
-        #load cogs
+        # load cogs
         self.load_cogs()
 
     async def on_ready(self):
@@ -46,7 +46,19 @@ class NazBot(commands.Bot):
                 "Command usage is wrong!\n"
                 "Usage: $roll [number]"
             )
-    
+
+        @self.command(aliases=["rld"])
+        @commands.is_owner
+        async def reload(ctx: commands.Context, extension_name: str):
+            self.reload_extension(f"cogs.{extension_name}")
+
+            await ctx.send(f"Successfully reloaded {extension_name}")
+
+        @reload.error
+        async def reload_error(ctx: commands.Context, error):
+            if isinstance(error, commands.NotOwner):
+                await ctx.send("You do not have enough power to access this command.")
+
     def load_cogs(self):
         for filename in os.listdir("./cogs"):
             if filename.endswith(".py"):
