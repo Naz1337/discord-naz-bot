@@ -14,6 +14,9 @@ class NazBot(commands.Bot):
 
         self.add_commands()
 
+        #load cogs
+        self.load_cogs()
+
     async def on_ready(self):
         print(
             "Bot is ready!\n"
@@ -43,6 +46,11 @@ class NazBot(commands.Bot):
                 "Command usage is wrong!\n"
                 "Usage: $roll [number]"
             )
+    
+    def load_cogs(self):
+        for filename in os.listdir("./cogs"):
+            if filename.endswith(".py"):
+                self.load_extension(f"cogs.{filename[:-3]}")
 
 
 naz_bot = NazBot()
