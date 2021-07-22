@@ -2,7 +2,7 @@ from typing import *
 from discord.ext import commands
 
 
-class Radio(commands.cog):
+class Radio(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
     
