@@ -4,66 +4,57 @@ from typing import *
 from discord import Intents
 from discord.ext import commands
 
+# BOT DECLARATION
 
-class NazBot(commands.Bot):
-    """Naz Bot Class"""
+bot = commands.Bot(command_prefix="$", description="Bot that Naz made.", intents=Intents.all())
 
-    def __init__(self):
-        super().__init__(command_prefix="$",
-                         description="Bot that Naz made.", intents=Intents.all())
+# BOT EVENTS
+@bot.event
+async def on_ready():
+    print(
+        "Bot is ready!\n"
+        f"Bot username: {bot.user}"
+    )
 
-        self.add_commands()
+# BOT COMMANDS
+# COMMAND ERROR HANDLER MUST BE CODED BELOW THAT COMMAND
+@bot.command(name="ping", pass_context=True)
+async def ping(ctx: commands.Context):
+    await ctx.send(f"Pong! {int(bot.latency*1000)}ms")
 
-        # load cogs
-        # self.load_cogs()
+@bot.command(aliases=["roll"])
+async def random_number(ctx: commands.Context, max: int):
+    await ctx.send(
+        f"Random generated number for you is {random.randint(0, max + 1)}"
+    )
 
-    async def on_ready(self):
-        print(
-            "Bot is ready!\n"
-            f"Bot username: {self.user}"
-        )
+@random_number.error
+async def random_number_error(ctx: commands.Context, error):
+    print("Error", type(error))
+    print(error)
+    await ctx.send(
+        "Command usage is wrong!\n"
+        "Usage: $roll [number]"
+    )
 
-    def add_commands(self):
-        """Guide for error handling a command
+@bot.command(aliases=["rld"])
+@commands.is_owner()
+async def reload(ctx: commands.Context, extension_name: str):
+    bot.reload_extension(f"cogs.{extension_name}")
 
-        error handling function for that command must be defined below that command thank you."""
+    await ctx.send(f"Successfully reloaded {extension_name}")
 
-        @self.command(name="ping", pass_context=True)
-        async def ping(ctx: commands.Context):
-            await ctx.send(f"Pong! {int(self.latency*1000)}ms")
+@reload.error
+async def reload_error(ctx: commands.Context, error):
+    if isinstance(error, commands.NotOwner):
+        await ctx.send("You do not have enough power to access this command.")
 
-        @self.command(aliases=["roll"])
-        async def random_number(ctx: commands.Context, max: int):
-            await ctx.send(
-                f"Random generated number for you is {random.randint(0, max + 1)}"
-            )
+# UTILITY FUNCTION
 
-        @random_number.error
-        async def random_number_error(ctx: commands.Context, error):
-            print("Error", type(error))
-            print(error)
-            await ctx.send(
-                "Command usage is wrong!\n"
-                "Usage: $roll [number]"
-            )
+# CODE TO RUN BEFORE STARTING BOT
 
-        @self.command(aliases=["rld"])
-        @commands.is_owner()
-        async def reload(ctx: commands.Context, extension_name: str):
-            self.reload_extension(f"cogs.{extension_name}")
+for filename in os.listdir("./cogs"):
+    if filename.endswith(".py"):
+        bot.load_extension(f"cogs.{filename[:-3]}")
 
-            await ctx.send(f"Successfully reloaded {extension_name}")
-
-        @reload.error
-        async def reload_error(ctx: commands.Context, error):
-            if isinstance(error, commands.NotOwner):
-                await ctx.send("You do not have enough power to access this command.")
-
-    # def load_cogs(self):
-    #     for filename in os.listdir("./cogs"):
-    #         if filename.endswith(".py"):
-    #             self.load_extension(f"cogs.{filename[:-3]}")
-
-
-naz_bot = NazBot()
-naz_bot.run(os.getenv("DISCORDBOTAPIKEY"))
+bot.run(os.getenv("DISCORDBOTAPIKEY"))
