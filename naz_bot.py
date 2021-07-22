@@ -65,7 +65,6 @@ async def reload_error(ctx: commands.Context, error):
 # CODE TO RUN BEFORE STARTING BOT
 for filename in os.listdir("./cogs"):
     if filename.endswith(".py"):
-        print(f"Loading {filename}")
         bot.load_extension(f"cogs.{filename[:-3]}")
 
 bot.run(os.getenv("DISCORDBOTAPIKEY"))
