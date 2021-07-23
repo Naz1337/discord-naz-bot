@@ -15,6 +15,8 @@ class RadioPlayer(discord.AudioSource):
     """The radio player class"""
 
     def __init__(self, radio_code_name: str, radio_name: str, radio_url: str, radio_format: str, discord_ctx: commands.Context):
+        # TODO: add support for non icy stream
+
         self.radio_code_name = radio_code_name
         self.radio_name = radio_name 
         self.radio_url = radio_url
@@ -72,7 +74,7 @@ class RadioPlayer(discord.AudioSource):
         return self._volume
     
     @volume.setter
-    def volume_setter(self, value: float):
+    def volume(self, value: float):
         self._volume = min(1.0, value)
 
     def print_what_is_playing(self, metadata_string: str):
@@ -135,8 +137,9 @@ class Radio(commands.Cog):
         try:
             voice_client: discord.VoiceClient = ctx.voice_client
             voice_client.source.volume = float(volume / 100)
-        except AttributeError:
-            return await ctx.send("Failed to change volume")
+        except AttributeError as e:
+            await ctx.send("Failed to change volume")
+            raise e
         await ctx.send(f"Changed volume to {volume}")
 
     @radio.before_invoke
