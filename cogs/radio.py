@@ -18,16 +18,18 @@ class RadioPlayer(discord.AudioSource):
         # TODO: add support for non icy stream
 
         self.radio_code_name = radio_code_name
-        self.radio_name = radio_name 
+        self.radio_name = radio_name
         self.radio_url = radio_url
         self.radio_format = radio_format
         self.discord_ctx = discord_ctx
         self._volume = 0.07
         self.audio_queue = Queue()
 
-        ffmpeg_command_line = "ffmpeg -f {audio_format} -i pipe:0 -f s16le -ac 2 -ar 48000 pipe:1".format(audio_format=radio_format).split()
+        ffmpeg_command_line = "ffmpeg -f {audio_format} -i pipe:0 -f s16le -ac 2 -ar 48000 pipe:1".format(
+            audio_format=radio_format).split()
 
-        self.ffmpeg_process = Popen(ffmpeg_command_line, stdin=PIPE, stdout=PIPE, creationflags=0x08000000)
+        self.ffmpeg_process = Popen(
+            ffmpeg_command_line, stdin=PIPE, stdout=PIPE, creationflags=0x08000000)
         # the creationflags part is only if this is running in Windows
 
         # Threading!
@@ -37,7 +39,6 @@ class RadioPlayer(discord.AudioSource):
         stdin_thread.start()
         stdout_thread.start()
 
-
     def drain_stdout(self):
         stdout: IO = self.ffmpeg_process.stdout
         while True:
@@ -45,7 +46,7 @@ class RadioPlayer(discord.AudioSource):
             if not data:
                 break
             self.audio_queue.put(data)
-    
+
     def stdin_blaster(self):
         stdin: IO = self.ffmpeg_process.stdin
         headers = {"Icy-MetaData": "1"}
@@ -57,22 +58,25 @@ class RadioPlayer(discord.AudioSource):
                 data = response.raw.read(metaint)
                 while True:
                     stdin.write(data)
-                    
-                    metadata_block_size = int.from_bytes(response.raw.read(1), byteorder="little")
+
+                    metadata_block_size = int.from_bytes(
+                        response.raw.read(1), byteorder="little")
                     if metadata_block_size != 0:
-                        metadata_bytes: bytes = response.raw.read(metadata_block_size * 16)
-                        self.print_what_is_playing(metadata_bytes.decode("utf-8"))
+                        metadata_bytes: bytes = response.raw.read(
+                            metadata_block_size * 16)
+                        self.print_what_is_playing(
+                            metadata_bytes.decode("utf-8"))
                         # TODO: Tell what is currently playing in the text channel
-                    
+
                     data = response.raw.read(metaint)
             except OSError:
                 # ffmpeg closed
                 return
-    
+
     @property
     def volume(self):
         return self._volume
-    
+
     @volume.setter
     def volume(self, value: float):
         self._volume = min(1.0, value)
@@ -83,7 +87,8 @@ class RadioPlayer(discord.AudioSource):
         for metadata_line in metadatas:
             metadata_line_pair = metadata_line.split("=")
             if metadata_line_pair[0] == "StreamTitle":
-                print("Currently playing {song_name} in {server_name}".format(song_name=metadata_line_pair[1].strip("'"), server_name=self.discord_ctx.guild))
+                print("Currently playing {song_name} in {server_name}".format(
+                    song_name=metadata_line_pair[1].strip("'"), server_name=self.discord_ctx.guild))
                 break
 
     def read(self):
@@ -91,12 +96,11 @@ class RadioPlayer(discord.AudioSource):
             return audioop.mul(self.audio_queue.get(timeout=15), 2, self._volume)
         except EmptyQueue:
             return b''
-    
+
     def cleanup(self):
         self.ffmpeg_process.terminate()
         self.audio_queue = None
         self = None
-
 
 
 class Radio(commands.Cog):
@@ -120,7 +124,7 @@ class Radio(commands.Cog):
 
         if not radio_data:
             return await ctx.send(f"There is no such thing as {radio_code_name}")
-        
+
         player = await self.bot.loop.run_in_executor(None, partial(RadioPlayer, radio_code_name, radio_data[2], radio_data[0], radio_data[1], ctx))
 
         ctx.voice_client.play(player)
@@ -131,7 +135,7 @@ class Radio(commands.Cog):
         if voice_client.is_playing():
             voice_client.stop()
         await ctx.send("Stopped radio!")
-    
+
     @commands.command()
     async def radio_volume(self, ctx: commands.Context, volume: int):
         try:
