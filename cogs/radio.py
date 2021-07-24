@@ -1,6 +1,7 @@
 import json
 import audioop
 import discord
+import asyncio
 import requests
 import threading
 from queue import Queue, Empty as EmptyQueue
@@ -19,14 +20,20 @@ class RadioPlayer(discord.AudioSource):
         self.radio_name = radio_name
         self.radio_url = radio_url
         self.radio_format = radio_format
+
         self.discord_ctx = discord_ctx
+        self.event_loop: asyncio.AbstractEventLoop = discord_ctx.bot.loop
+        self.last_now_playing_message: discord.Message = None
+
         self._volume = 0.07
         self.audio_queue = Queue()
 
         if self.radio_format == "direct":
-            ffmpeg_command_line = "ffmpeg -i {url} -f s16le -ac 2 -ar 48000 pipe:1".format(url=radio_url).split()
+            ffmpeg_command_line = "ffmpeg -i {url} -f s16le -ac 2 -ar 48000 pipe:1".format(
+                url=radio_url).split()
 
-            self.ffmpeg_process = Popen(ffmpeg_command_line, stdout=PIPE, creationflags=0x08000000)
+            self.ffmpeg_process = Popen(
+                ffmpeg_command_line, stdout=PIPE, creationflags=0x08000000)
         else:
             ffmpeg_command_line = "ffmpeg -f {audio_format} -i pipe:0 -f s16le -ac 2 -ar 48000 pipe:1".format(
                 audio_format=radio_format).split()
@@ -36,7 +43,8 @@ class RadioPlayer(discord.AudioSource):
             # the creationflags part is only if this is running in Windows
 
             # Threading!
-            stdin_thread = threading.Thread(target=self.stdin_blaster, daemon=True)
+            stdin_thread = threading.Thread(
+                target=self.stdin_blaster, daemon=True)
             stdin_thread.start()
         stdout_thread = threading.Thread(target=self.drain_stdout, daemon=True)
         stdout_thread.start()
@@ -69,9 +77,8 @@ class RadioPlayer(discord.AudioSource):
                     if metadata_block_size != 0:
                         metadata_bytes: bytes = response.raw.read(
                             metadata_block_size * 16)
-                        self.print_what_is_playing(
-                            metadata_bytes.decode("utf-8"))
-                        # TODO: Tell what is currently playing in the text channel
+                        self.event_loop.create_task(
+                            self.tell_text_channel_currently_playing(metadata_bytes.decode("utf-8")))
 
                     data = response.raw.read(metaint)
             except OSError:
@@ -86,15 +93,22 @@ class RadioPlayer(discord.AudioSource):
     def volume(self, value: float):
         self._volume = min(1.0, value)
 
-    def print_what_is_playing(self, metadata_string: str):
+    def get_current_song_title(self, metadata_string: str):
         """Temp func until able to tell what is playing in the text channel"""
         metadatas = metadata_string.split(";")
         for metadata_line in metadatas:
             metadata_line_pair = metadata_line.split("=")
             if metadata_line_pair[0] == "StreamTitle":
-                print("Currently playing {song_name} in {server_name}".format(
-                    song_name=metadata_line_pair[1].strip("'"), server_name=self.discord_ctx.guild))
-                break
+                # print("Currently playing {song_name} in {server_name}".format(
+                #     song_name=metadata_line_pair[1].strip("'"), server_name=self.discord_ctx.guild))
+                # break
+                return metadata_line_pair[1].strip("'")
+
+    async def tell_text_channel_currently_playing(self, metadata: str):
+        song_name = await self.event_loop.run_in_executor(None, partial(self.get_current_song_title, metadata))
+        if self.last_now_playing_message:
+            await self.last_now_playing_message.delete()
+        self.last_now_playing_message = await self.discord_ctx.send(f"Now playing {song_name} from {self.radio_name}")
 
     def read(self):
         try:
