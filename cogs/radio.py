@@ -15,8 +15,6 @@ class RadioPlayer(discord.AudioSource):
     """The radio player class"""
 
     def __init__(self, radio_code_name: str, radio_name: str, radio_url: str, radio_format: str, discord_ctx: commands.Context):
-        # TODO: add support for non icy stream
-
         self.radio_code_name = radio_code_name
         self.radio_name = radio_name
         self.radio_url = radio_url
@@ -25,18 +23,22 @@ class RadioPlayer(discord.AudioSource):
         self._volume = 0.07
         self.audio_queue = Queue()
 
-        ffmpeg_command_line = "ffmpeg -f {audio_format} -i pipe:0 -f s16le -ac 2 -ar 48000 pipe:1".format(
-            audio_format=radio_format).split()
+        if self.radio_format == "direct":
+            ffmpeg_command_line = "ffmpeg -i {url} -f s16le -ac 2 -ar 48000 pipe:1".format(url=radio_url).split()
 
-        self.ffmpeg_process = Popen(
-            ffmpeg_command_line, stdin=PIPE, stdout=PIPE, creationflags=0x08000000)
-        # the creationflags part is only if this is running in Windows
+            self.ffmpeg_process = Popen(ffmpeg_command_line, stdout=PIPE, creationflags=0x08000000)
+        else:
+            ffmpeg_command_line = "ffmpeg -f {audio_format} -i pipe:0 -f s16le -ac 2 -ar 48000 pipe:1".format(
+                audio_format=radio_format).split()
 
-        # Threading!
-        stdin_thread = threading.Thread(target=self.stdin_blaster, daemon=True)
+            self.ffmpeg_process = Popen(
+                ffmpeg_command_line, stdin=PIPE, stdout=PIPE, creationflags=0x08000000)
+            # the creationflags part is only if this is running in Windows
+
+            # Threading!
+            stdin_thread = threading.Thread(target=self.stdin_blaster, daemon=True)
+            stdin_thread.start()
         stdout_thread = threading.Thread(target=self.drain_stdout, daemon=True)
-
-        stdin_thread.start()
         stdout_thread.start()
 
     def drain_stdout(self):
@@ -45,7 +47,10 @@ class RadioPlayer(discord.AudioSource):
             data = stdout.read(3840)
             if not data:
                 break
-            self.audio_queue.put(data)
+            try:
+                self.audio_queue.put(data)
+            except AttributeError:
+                return
 
     def stdin_blaster(self):
         stdin: IO = self.ffmpeg_process.stdin
