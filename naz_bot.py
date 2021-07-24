@@ -5,7 +5,7 @@ from discord import Intents
 from discord.ext import commands
 
 # BOT DECLARATION
-bot = commands.Bot(command_prefix="$",
+bot = commands.Bot(command_prefix=".",
                    description="Bot that Naz made.", intents=Intents.all())
 
 # BOT EVENTS
@@ -23,13 +23,16 @@ async def on_ready():
 # COMMAND ERROR HANDLER MUST BE CODED BELOW THAT COMMAND
 
 
-@bot.command(name="ping", pass_context=True)
+@bot.command()
 async def ping(ctx: commands.Context):
     await ctx.send(f"Pong! {int(bot.latency*1000)}ms")
 
 
 @bot.command(aliases=["roll"])
 async def random_number(ctx: commands.Context, max: int):
+    """Give you a random number between 0 and your number
+    Usage: .roll <max>"""
+
     await ctx.send(
         f"Random generated number for you is {random.randint(0, max + 1)}"
     )
