@@ -8,7 +8,7 @@ from queue import Queue, Empty as EmptyQueue
 from typing import *
 from subprocess import Popen, PIPE
 from functools import partial
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord.ext.commands import CommandError
 
 
@@ -48,6 +48,8 @@ class RadioPlayer(discord.AudioSource):
             stdin_thread.start()
         stdout_thread = threading.Thread(target=self.drain_stdout, daemon=True)
         stdout_thread.start()
+
+        self.setup_auto_disconnect()
 
     def drain_stdout(self):
         stdout: IO = self.ffmpeg_process.stdout
@@ -110,6 +112,19 @@ class RadioPlayer(discord.AudioSource):
             await self.last_now_playing_message.delete()
         self.last_now_playing_message = await self.discord_ctx.send(f"Now playing {song_name} from {self.radio_name}")
 
+    def setup_auto_disconnect(self):
+        @tasks.loop(minutes=5, loop=self.event_loop)
+        async def auto_disconnect():
+            voice_client: discord.VoiceClient = self.discord_ctx.voice_client
+            members: List[discord.Member] = voice_client.channel.members
+            if len([member for member in members if not member.bot]) == 0:
+                await self.discord_ctx.send("Disconnecting due to there is nobody in the VC")
+                voice_client.stop()
+                await voice_client.disconnect()
+
+        auto_disconnect.start()
+        self.auto_disconnect: tasks.Loop = auto_disconnect
+
     def read(self):
         try:
             return audioop.mul(self.audio_queue.get(timeout=15), 2, self._volume)
@@ -117,9 +132,18 @@ class RadioPlayer(discord.AudioSource):
             return b''
 
     def cleanup(self):
+        self.auto_disconnect.cancel()
         self.ffmpeg_process.terminate()
-        self.audio_queue = None
-        self = None
+
+        del self.auto_disconnect
+        del self.audio_queue
+        del self.ffmpeg_process
+        del self.last_now_playing_message
+
+        del self.radio_code_name
+        del self.radio_format
+        del self.radio_name
+        del self.radio_url
 
 
 class Radio(commands.Cog):
