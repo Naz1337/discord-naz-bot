@@ -7,7 +7,7 @@ class Nightcore(commands.Cog):
         self.bot = bot
 
     @commands.Cog.listener()
-    def on_ready(self):
+    async def on_ready(self):
         print("Nightcore Cog is loaded.")
     
     @commands.command(aliases=["nc"])
