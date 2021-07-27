@@ -62,6 +62,15 @@ async def reload_error(ctx: commands.Context, error):
         await ctx.send("You do not have enough power to access this command.")
 
 
+@bot.command(aliases=["leave", "disconnect"])
+async def leave_voice_channel(ctx: commands.Context):
+    if ctx.voice_client is not None:
+        await ctx.voice_client.disconnect()
+    
+    await ctx.send("Disconnected from the voice channel.")
+
+
+
 # UTILITY FUNCTION
 
 
