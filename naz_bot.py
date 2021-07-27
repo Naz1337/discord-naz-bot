@@ -29,7 +29,7 @@ async def ping(ctx: commands.Context):
 
 
 @bot.command(aliases=["roll"])
-async def random_number(ctx: commands.Context, max: int):
+async def random_number(ctx: commands.Context, max: int = 100):
     """Give you a random number between 0 and your number
     Usage: .roll <max>"""
 
@@ -68,10 +68,9 @@ async def leave_voice_channel(ctx: commands.Context):
         if ctx.voice_client.is_playing():
             ctx.voice_client.stop()
         await ctx.voice_client.disconnect()
-    
+
     await ctx.send("Disconnected from the voice channel.")
     print(f"Disconnected from {ctx.guild}!")
-
 
 
 # UTILITY FUNCTION
