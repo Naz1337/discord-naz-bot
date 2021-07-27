@@ -160,7 +160,7 @@ class Radio(commands.Cog):
     async def radio(self, ctx: commands.Context, radio_code_name: str):
         """Command to play a radio"""
 
-        radio_data = await self.bot.loop.run_in_executor(None, partial(self.get_radio, radio_code_name))
+        radio_data = await self.bot.loop.run_in_executor(None, partial(Radio.get_radio, radio_code_name))
 
         # There are always 3 element in radio_data, [0] is the url
         # [1] is the format and [2] is the radio name
@@ -223,7 +223,7 @@ class Radio(commands.Cog):
         line_format = "{radio_name} -> {radio_code}\n"
         formatted_str = ""
 
-        radios: Dict = await self.bot.loop.run_in_executor(None, self.get_radios)
+        radios: Dict = await self.bot.loop.run_in_executor(None, Radio.get_radios)
 
         radio_code: str
         radio_data: List[str]
@@ -236,8 +236,8 @@ class Radio(commands.Cog):
             "```"
         )
 
-
-    def get_radio(_, radio_name: str) -> Union[Dict, bool]:
+    @staticmethod
+    def get_radio(radio_name: str) -> Union[Dict, bool]:
         with open("data/radios.json", 'r') as json_file:
             radios: Dict = json.load(json_file)
 
@@ -246,7 +246,8 @@ class Radio(commands.Cog):
         except:
             return False
 
-    def get_radios(_):
+    @staticmethod
+    def get_radios():
         with open("data/radios.json", 'r') as json_file:
             radios: Dict = json.load(json_file)
         
