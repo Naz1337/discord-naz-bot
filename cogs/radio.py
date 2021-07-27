@@ -218,14 +218,39 @@ class Radio(commands.Cog):
             # or its a different station, either way, we just stop them
             ctx.voice_client.stop()
 
+    @commands.command(aliases=["radios"])
+    async def list_all_radio(self, ctx: commands.Context):
+        line_format = "{radio_name} -> {radio_code}\n"
+        formatted_str = ""
+
+        radios: Dict = await self.bot.loop.run_in_executor(None, self.get_radios)
+
+        radio_code: str
+        radio_data: List[str]
+        for radio_code, radio_data in radios.items():
+            formatted_str += line_format.format(radio_name=radio_data[2], radio_code=radio_code)
+        
+        await ctx.send(
+            "```\n" +
+            formatted_str +
+            "```"
+        )
+
+
     def get_radio(_, radio_name: str) -> Union[Dict, bool]:
-        with open("data/radios.json") as json_file:
+        with open("data/radios.json", 'r') as json_file:
             radios: Dict = json.load(json_file)
 
         try:
             return radios[radio_name]
         except:
             return False
+
+    def get_radios(_):
+        with open("data/radios.json", 'r') as json_file:
+            radios: Dict = json.load(json_file)
+        
+        return radios
 
 
 def setup(bot: commands.Bot):
