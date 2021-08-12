@@ -1,15 +1,51 @@
 import json
+import array
+import struct
 import audioop
 import discord
 import asyncio
 import requests
 import threading
+from io import BufferedIOBase, BytesIO
 from queue import Queue, Empty as EmptyQueue
 from typing import *
 from subprocess import Popen, PIPE
 from functools import partial
 from discord.ext import commands, tasks
 from discord.ext.commands import CommandError
+
+class OggVorbisStream:
+
+    def __init__(self, file_handle: BufferedIOBase) -> None:
+        self.page_iter = self.page_generator(file_handle)
+
+    def page_generator(self, file_handle: BufferedIOBase):
+        while file_handle.read(4) == b"OggS":
+            yield OggPage(file_handle)
+
+    def get_next_page(self):
+        try:
+            return next(self.page_iter)
+        except StopIteration:
+            return None
+
+
+class OggPage:
+
+    unpacker = struct.Struct("=BBQIIIB")
+
+    def __init__(self, file_handle: BufferedIOBase) -> None:
+        self.version, self.mode, self.granule, self.serial, self.page_no, self.crc, self.len_seg_table = self.unpacker.unpack(
+            file_handle.read(self.unpacker.size))
+
+        self.seg_table = array.array('B', struct.unpack(
+            'B'*self.len_seg_table, file_handle.read(self.len_seg_table)))
+
+        self.data = file_handle.read(sum(self.seg_table))
+
+    def convert_to_bytes(self):
+        return b"OggS" + struct.pack("=BBQIIIB", self.version, self.mode, self.granule, self.serial, self.page_no, self.crc, self.len_seg_table) + self.seg_table.tobytes() + self.data
+
 
 
 class RadioPlayer(discord.AudioSource):
@@ -63,28 +99,59 @@ class RadioPlayer(discord.AudioSource):
 
     def stdin_blaster(self):
         stdin: IO = self.ffmpeg_process.stdin
-        headers = {"Icy-MetaData": "1"}
-        with requests.get(self.radio_url, headers=headers, stream=True) as response:
-            response.raise_for_status()
+        if self.radio_format != "vorbis":
+            headers = {"Icy-MetaData": "1"}
+            with requests.get(self.radio_url, headers=headers, stream=True) as response:
+                response.raise_for_status()
 
-            metaint: int = int(response.headers.get("icy-metaint"))
-            try:
-                data = response.raw.read(metaint)
-                while True:
-                    stdin.write(data)
-
-                    metadata_block_size = int.from_bytes(
-                        response.raw.read(1), byteorder="little")
-                    if metadata_block_size != 0:
-                        metadata_bytes: bytes = response.raw.read(
-                            metadata_block_size * 16)
-                        self.event_loop.create_task(
-                            self.tell_text_channel_currently_playing(metadata_bytes.decode("utf-8")))
-
+                metaint: int = int(response.headers.get("icy-metaint"))
+                try:
                     data = response.raw.read(metaint)
-            except OSError:
-                # ffmpeg closed
-                return
+                    while True:
+                        stdin.write(data)
+
+                        metadata_block_size = int.from_bytes(
+                            response.raw.read(1), byteorder="little")
+                        if metadata_block_size != 0:
+                            metadata_bytes: bytes = response.raw.read(
+                                metadata_block_size * 16)
+                            self.event_loop.create_task(
+                                self.tell_text_channel_currently_playing(metadata_bytes.decode("utf-8")))
+
+                        data = response.raw.read(metaint)
+                except OSError:
+                    # ffmpeg closed
+                    return
+        else:
+            with requests.get(self.radio_url, stream=True) as response:
+                response.raise_for_status()
+
+                ogg_stream = OggVorbisStream(response.raw)
+
+                page = ogg_stream.get_next_page()
+
+                while page:
+                    if page.data[:7] == b"\x03vorbis":
+                        metadata = dict()
+
+                        data_io = BytesIO(page.data)
+
+                        data_io.read(int.from_bytes(data_io.read(4), "little", signed=False))
+
+                        for _ in range(int.from_bytes(data_io.read(4), "little", signed=False)):
+                            separated_metadata = data_io.read(int.from_bytes(data_io.read(4), "little", signed=False)).decode().split('=')
+                            metadata[separated_metadata[0].lower()] = "=".join(separated_metadata[1:])
+                        
+                        del data_io
+
+                        self.event_loop.create_task(self.discord_ctx.send(f"Now playing {metadata['artist']} - {metadata['title']} from {self.radio_name}"))
+
+                        del metadata
+                    
+                    stdin.write(page.convert_to_bytes())
+
+                    page = ogg_stream.get_next_page()
+
 
     @property
     def volume(self):
