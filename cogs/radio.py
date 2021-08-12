@@ -35,7 +35,7 @@ class RadioPlayer(discord.AudioSource):
             self.ffmpeg_process = Popen(
                 ffmpeg_command_line, stdout=PIPE, creationflags=0x08000000)
         else:
-            ffmpeg_command_line = "ffmpeg -f {audio_format} -i pipe:0 -f s16le -ac 2 -ar 48000 pipe:1".format(
+            ffmpeg_command_line = "ffmpeg -i pipe:0 -f s16le -ac 2 -ar 48000 pipe:1".format(
                 audio_format=radio_format).split()
 
             self.ffmpeg_process = Popen(
