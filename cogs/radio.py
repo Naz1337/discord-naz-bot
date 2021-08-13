@@ -14,6 +14,7 @@ from functools import partial
 from discord.ext import commands, tasks
 from discord.ext.commands import CommandError
 
+
 class OggVorbisStream:
 
     def __init__(self, file_handle: BufferedIOBase) -> None:
@@ -45,7 +46,6 @@ class OggPage:
 
     def convert_to_bytes(self):
         return b"OggS" + struct.pack("=BBQIIIB", self.version, self.mode, self.granule, self.serial, self.page_no, self.crc, self.len_seg_table) + self.seg_table.tobytes() + self.data
-
 
 
 class RadioPlayer(discord.AudioSource):
@@ -136,22 +136,30 @@ class RadioPlayer(discord.AudioSource):
 
                         data_io = BytesIO(page.data)
 
-                        data_io.read(int.from_bytes(data_io.read(4), "little", signed=False))
+                        data_io.read(7)
+
+                        data_io.read(int.from_bytes(
+                            data_io.read(4), "little", signed=False))
 
                         for _ in range(int.from_bytes(data_io.read(4), "little", signed=False)):
-                            separated_metadata = data_io.read(int.from_bytes(data_io.read(4), "little", signed=False)).decode().split('=')
-                            metadata[separated_metadata[0].lower()] = "=".join(separated_metadata[1:])
-                        
+                            separated_metadata = data_io.read(int.from_bytes(
+                                data_io.read(4), "little", signed=False)).decode().split('=')
+                            metadata[separated_metadata[0].lower()] = "=".join(
+                                separated_metadata[1:])
+
                         del data_io
 
-                        self.event_loop.create_task(self.discord_ctx.send(f"Now playing {metadata['artist']} - {metadata['title']} from {self.radio_name}"))
+                        self.event_loop.create_task(self.discord_ctx.send(
+                            f"Now playing {metadata['artist']} - {metadata['title']} from {self.radio_name}"))
 
                         del metadata
-                    
-                    stdin.write(page.convert_to_bytes())
+
+                    try:
+                        stdin.write(page.convert_to_bytes())
+                    except OSError:
+                        return
 
                     page = ogg_stream.get_next_page()
-
 
     @property
     def volume(self):
@@ -294,8 +302,9 @@ class Radio(commands.Cog):
         radio_code: str
         radio_data: List[str]
         for radio_code, radio_data in radios.items():
-            formatted_str += line_format.format(radio_name=radio_data[2], radio_code=radio_code)
-        
+            formatted_str += line_format.format(
+                radio_name=radio_data[2], radio_code=radio_code)
+
         await ctx.send(
             "```\n" +
             formatted_str +
@@ -316,7 +325,7 @@ class Radio(commands.Cog):
     def get_radios():
         with open("data/radios.json", 'r') as json_file:
             radios: Dict = json.load(json_file)
-        
+
         return radios
 
 
