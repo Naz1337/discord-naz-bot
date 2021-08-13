@@ -149,8 +149,7 @@ class RadioPlayer(discord.AudioSource):
 
                         del data_io
 
-                        self.event_loop.create_task(self.discord_ctx.send(
-                            f"Now playing {metadata['artist']} - {metadata['title']} from {self.radio_name}"))
+                        self.event_loop.create_task(self.tell_np_vorbis(metadata))
 
                         del metadata
 
@@ -160,6 +159,11 @@ class RadioPlayer(discord.AudioSource):
                         return
 
                     page = ogg_stream.get_next_page()
+
+    async def tell_np_vorbis(self, metadata: Dict):
+        if self.last_now_playing_message:
+            await self.last_now_playing_message.delete()
+        self.last_now_playing_message = await self.discord_ctx.send(f"Now playing {metadata['artist']} - {metadata['title']} from {self.radio_name}")
 
     @property
     def volume(self):
