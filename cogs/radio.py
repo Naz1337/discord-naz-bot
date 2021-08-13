@@ -33,11 +33,11 @@ class OggVorbisStream:
 
 class OggPage:
 
-    unpacker = struct.Struct("=BBQIIIB")
+    ogg_page_struct = struct.Struct("=BBQIIIB")
 
     def __init__(self, file_handle: BufferedIOBase) -> None:
-        self.version, self.mode, self.granule, self.serial, self.page_no, self.crc, self.len_seg_table = self.unpacker.unpack(
-            file_handle.read(self.unpacker.size))
+        self.version, self.mode, self.granule, self.serial, self.page_no, self.crc, self.len_seg_table = self.ogg_page_struct.unpack(
+            file_handle.read(self.ogg_page_struct.size))
 
         self.seg_table = array.array('B', struct.unpack(
             'B'*self.len_seg_table, file_handle.read(self.len_seg_table)))
@@ -45,7 +45,7 @@ class OggPage:
         self.data = file_handle.read(sum(self.seg_table))
 
     def convert_to_bytes(self):
-        return b"OggS" + struct.pack("=BBQIIIB", self.version, self.mode, self.granule, self.serial, self.page_no, self.crc, self.len_seg_table) + self.seg_table.tobytes() + self.data
+        return b"OggS" + self.ogg_page_struct.pack(self.version, self.mode, self.granule, self.serial, self.page_no, self.crc, self.len_seg_table) + self.seg_table.tobytes() + self.data
 
 
 class RadioPlayer(discord.AudioSource):
